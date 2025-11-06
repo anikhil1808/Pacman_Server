@@ -6,7 +6,7 @@ const app = express();
 const port = process.env.PORT || 3000; // Use the environment port for Render
 
 // IMPORTANT: Your MongoDB Atlas connection string (use environment variable on Render)
-const uri = process.env.MONGO_URI || "mongodb+srv://sf_svce:Nikhil5678@pacman-leaderboard.b1gdhet.mongodb.net/?appName=pacman-leaderboard"; 
+const uri = process.env.MONGO_URI 
 
 let db; // Global variable to hold the database connection
 
