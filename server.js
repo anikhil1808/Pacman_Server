@@ -3,11 +3,10 @@ const { MongoClient } = require('mongodb');
 const cors = require('cors');
 
 const app = express();
-const port = process.env.PORT || 3000;; // Choose a port for your backend
+const port = process.env.PORT || 3000; // Use the environment port for Render
 
-// IMPORTANT: Replace this with your actual MongoDB Atlas connection string
-// Example: mongodb+srv://<username>:<password>@<cluster-name>.mongodb.net/?retryWrites=true&w=majority
-const uri = "mongodb+srv://sf_svce:Nikhil5678@pacman-leaderboard.b1gdhet.mongodb.net/?appName=pacman-leaderboard"; 
+// IMPORTANT: Your MongoDB Atlas connection string (use environment variable on Render)
+const uri = process.env.MONGO_URI || "mongodb+srv://sf_svce:Nikhil5678@pacman-leaderboard.b1gdhet.mongodb.net/?appName=pacman-leaderboard"; 
 
 let db; // Global variable to hold the database connection
 
@@ -17,6 +16,7 @@ app.use(express.json()); // Parses incoming JSON payloads
 
 // --- MongoDB Connection Function ---
 async function connectToMongo() {
+    // Render environment uses the MONGO_URI environment variable
     const client = new MongoClient(uri);
     try {
         console.log("Connecting to MongoDB Atlas...");
@@ -25,14 +25,28 @@ async function connectToMongo() {
         console.log("Successfully connected to MongoDB!");
     } catch (error) {
         console.error("Error connecting to MongoDB:", error);
-        process.exit(1); // Exit if connection fails
+        // Do NOT exit the process on Render if connection fails initially,
+        // as Express must start to serve the health check route.
     }
 }
+
+// --- API Endpoint: Root Path (Health Check FIX) ---
+// This handles the request from UptimeRobot, fixing the 404 error.
+app.get('/', (req, res) => {
+    // Check if the database connection object exists
+    const dbStatus = db ? 'Connected' : 'Not Connected (Check logs)';
+    
+    // Respond with a 200 OK status and a JSON object
+    res.json({ 
+        status: 'API is running and awake!', 
+        database: dbStatus 
+    });
+});
 
 // --- API Endpoint: Submit Score ---
 app.post('/api/submit_score', async (req, res) => {
     if (!db) {
-        return res.status(500).json({ success: false, message: "Database not connected." });
+        return res.status(503).json({ success: false, message: "Database not connected. Please try again." });
     }
     
     const playerName = (req.body.playerName || 'Anonymous').toUpperCase();
@@ -43,13 +57,13 @@ app.post('/api/submit_score', async (req, res) => {
     }
 
     try {
-        const result = await db.collection('high_scores').insertOne({
+        await db.collection('high_scores').insertOne({
             player_name: playerName,
             score: scoreValue,
             date_achieved: new Date() 
         });
 
-        res.json({ success: true, message: "Score submitted successfully.", id: result.insertedId });
+        res.json({ success: true, message: "Score submitted successfully." });
     } catch (error) {
         console.error("Error inserting score:", error);
         res.status(500).json({ success: false, message: "Error submitting score." });
@@ -59,7 +73,7 @@ app.post('/api/submit_score', async (req, res) => {
 // --- API Endpoint: Get Leaderboard ---
 app.get('/api/get_leaderboard', async (req, res) => {
     if (!db) {
-        return res.status(500).json({ success: false, message: "Database not connected." });
+        return res.status(503).json({ success: false, message: "Database not connected. Please try again." });
     }
 
     try {
@@ -87,6 +101,6 @@ app.get('/api/get_leaderboard', async (req, res) => {
 // --- Start Server ---
 connectToMongo().then(() => {
     app.listen(port, () => {
-        console.log(`Server running at http://localhost:${port}`);
+        console.log(`Server running at port ${port}`);
     });
 });
